@@ -1,4 +1,4 @@
 class Market:
     
-    def __init__(self, df) -> None:
+    def __init__(self, data) -> None:
         pass
