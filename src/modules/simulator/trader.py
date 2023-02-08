@@ -23,7 +23,7 @@ class Trade:
     exit_timestamp: str
     exit_price: float
     win: bool
-    
+
     entry_atr: float
 
 
@@ -48,18 +48,27 @@ class Trader:
 
         # ATR TPSL variables
         atr_timeperiod = 50
-        atr_sl_multiplier = 2
-        atr_tp_multiplier = 4
+        atr_sl_multiplier = 3
+        atr_tp_multiplier = 6
 
+        self.spot_df['bullish_candle'] = self.spot_df['open'] < self.spot_df['close']
+        self.spot_df['bearish_candle'] = self.spot_df['open'] > self.spot_df['close']
+        
         # configure SL/TP data
         self.spot_df['atr_tpsl'] = ta.ATR(self.spot_df['high'],
                                           self.spot_df['low'],
                                           self.spot_df['close'],
                                           timeperiod=atr_timeperiod)
+        
+        self.spot_df['atr_14'] = ta.ATR(self.spot_df['high'],
+                                            self.spot_df['low'],
+                                            self.spot_df['close'],
+                                            timeperiod=14)
 
         # prevent forward looking of ATR
         self.spot_df['atr_tpsl'] = self.spot_df['atr_tpsl'].shift(1)
-
+        self.spot_df['atr_14'] = self.spot_df['atr_14'].shift(1)
+        
         self.spot_df['stoploss'] = self.spot_df['open'] - \
             (self.spot_df['atr_tpsl'] * atr_sl_multiplier)
 
@@ -73,7 +82,13 @@ class Trader:
 
             if index < 2:
                 continue
-
+            
+            # get number of bullish candles in last 15 candles
+            bullish_candles = self.spot_df.iloc[row.Index - 8:row.Index]['bullish_candle'].sum()
+            if bullish_candles > 4:
+                print('bullish candles: ', bullish_candles)
+                continue 
+                
             swap_row = self.swap_df.iloc[row.Index]
             # find the row where timestamps match
 
@@ -92,7 +107,7 @@ class Trader:
                           exit_timestamp=None,
                           exit_price=None,
                           win=None,
-                          entry_atr=spot_row['atr_tpsl'])
+                          entry_atr=spot_row['atr_14'])
 
             # print('trade entered on timestamp: ', trade.entry_timestamp)
 
@@ -119,25 +134,11 @@ class Trader:
                     break
 
             self.trades.append(trade)
-            # print(trade.win, trade.entry_timestamp, trade.exit_timestamp)
-
-        # wins = [trade.win for trade in self.trades if trade.win != False]
-        # # losses = [trade.win for trade in self.trades if trade.win == False]
-
-        # print(f'wins: {len(wins)}')
-        # print(f'losses: {len(losses)}')
-
-        # pnl = 0
-        # pos_size = 20000
-        # fees = 0
-        # drawdown = 0
-        # pnl_rolling = []
-        # open_rolling = []
 
         wins = 0
         losses = 0
-        portfolio_size = 50000
-        fee_amount_per_side = 0.0004
+        portfolio_size = 10000
+        fee_amount_per_side = 0.0005
         first_price = None
 
         total_profit = 0
@@ -146,15 +147,12 @@ class Trader:
         pnl = 0
         fees = 0
 
-        pct_risk = 0.075
+        pct_risk = 0.05
         pnl_list = []
         rolling_pnl_list = []
 
         buy_hold_pnl = 0
         rolling_buy_hold_pnl_list = []
-
-        sl_pct_pnl_list = []
-        atr_pnl_list = []
 
         for trade in self.trades:
             if trade.exit_timestamp != None:
@@ -177,7 +175,9 @@ class Trader:
                 takeprofit_pct = (trade.tp_price -
                                   trade.entry_price) / trade.entry_price
 
-                pos_size = portfolio_size * pct_risk / stoploss_pct
+                atr_based_pos_multiplier = (trade.entry_atr/trade.entry_price)*100
+
+                pos_size = (portfolio_size * pct_risk / stoploss_pct) * atr_based_pos_multiplier
                 profit = abs(pos_size * pct_change)
                 fee = abs(pos_size * (2 * fee_amount_per_side))
 
@@ -203,19 +203,12 @@ class Trader:
                 pnl_list.append(pnl)
                 rolling_pnl_list.append(pnl)
                 fees += fee
-
-                sl_pct_pnl = [stoploss_pct, pnl]
-                sl_pct_pnl_list.append(sl_pct_pnl)
                 
-                atr_pnl = [trade.entry_atr, pnl]
-                atr_pnl_list.append(atr_pnl)
-
                 print(f'stoploss: %{stoploss_pct:.2f},' +
                       f' ${trade.entry_price - trade.sl_price:.2f}')
                 print(f'takeprofit: %{takeprofit_pct:.2f},' +
                       f' ${trade.tp_price - trade.entry_price:.2f}')
-
-                print(f'pos_size: ${abs(pos_size):.2f}\n')
+                print(f'pos_size: ${abs(pos_size):.2f}')
 
         summary_header_colour = color_green if pnl > 0 else color_red
         print(f'{summary_header_colour}summary{color_end}')
@@ -230,10 +223,4 @@ class Trader:
         plt.plot(rolling_pnl_list, label='algorithm')
         plt.plot(rolling_buy_hold_pnl_list, label='buy and hold')
         plt.legend()
-        plt.show()
-        
-        plt.scatter(*zip(*sl_pct_pnl_list))
-        plt.show()
-        
-        plt.scatter(*zip(*atr_pnl_list))
         plt.show()
