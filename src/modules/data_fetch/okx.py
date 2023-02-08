@@ -81,7 +81,7 @@ class OkxDataFetch:
                 timeframe=timeframe,
                 since=since if req == 0 else datasets[-1][-1][0],
                 limit=100)
-
+    
             datasets.append(response)
 
             req_pct = (req + 1) / num_requests
@@ -109,4 +109,5 @@ class OkxDataFetch:
 
 if __name__ == '__main__':
     okx = OkxDataFetch()
-    df = okx.get_ohlcv('BTC', '2h', 'swap', '01-01-2022', cache=True)
+    df_swap = okx.get_ohlcv('LTC', '30m', 'swap', '01-01-2022', cache=True)
+    df_spot = okx.get_ohlcv('LTC', '30m', 'spot', '01-01-2022', cache=True)
