@@ -23,6 +23,8 @@ class Trade:
     exit_timestamp: str
     exit_price: float
     win: bool
+    
+    entry_atr: float
 
 
 class Trader:
@@ -42,11 +44,12 @@ class Trader:
         self.trades = []
 
         self.tl = TraderLogger()
+        print()
 
         # ATR TPSL variables
-        atr_timeperiod = 100
-        atr_sl_multiplier = 1.4
-        atr_tp_multiplier = 3
+        atr_timeperiod = 50
+        atr_sl_multiplier = 2
+        atr_tp_multiplier = 4
 
         # configure SL/TP data
         self.spot_df['atr_tpsl'] = ta.ATR(self.spot_df['high'],
@@ -56,8 +59,10 @@ class Trader:
 
         # prevent forward looking of ATR
         self.spot_df['atr_tpsl'] = self.spot_df['atr_tpsl'].shift(1)
+
         self.spot_df['stoploss'] = self.spot_df['open'] - \
             (self.spot_df['atr_tpsl'] * atr_sl_multiplier)
+
         self.spot_df['takeprofit'] = self.spot_df['open'] + \
             (self.spot_df['atr_tpsl'] * atr_tp_multiplier)
 
@@ -66,14 +71,13 @@ class Trader:
 
         for index, row in enumerate(entry_points.itertuples()):
 
-            if index < 50:
+            if index < 2:
                 continue
 
             swap_row = self.swap_df.iloc[row.Index]
             # find the row where timestamps match
 
             spot_row = self.spot_df.iloc[row.Index]
-
             entry_price = swap_row['open']
             stoploss = spot_row['stoploss']
             takeprofit = spot_row['takeprofit']
@@ -81,19 +85,14 @@ class Trader:
             stoploss_pct = (stoploss - entry_price) / entry_price
             takeprofit_pct = (takeprofit - entry_price) / entry_price
 
-            # self.tl.log(f'entry price: {entry_price:.2f}')
-            # self.tl.log(f'stoploss: {stoploss:.2f}')
-            # self.tl.log(f'takeprofit: {takeprofit:.2f}')
-            # self.tl.log(f'stoploss_pct: {stoploss_pct*100:.2f}%')
-            # self.tl.log(f'takeprofit_pct: {takeprofit_pct*100:.2f}%\n')
-
             trade = Trade(entry_price=entry_price,
                           tp_price=takeprofit,
                           sl_price=stoploss,
                           entry_timestamp=swap_row['timestamp'],
                           exit_timestamp=None,
                           exit_price=None,
-                          win=None)
+                          win=None,
+                          entry_atr=spot_row['atr_tpsl'])
 
             # print('trade entered on timestamp: ', trade.entry_timestamp)
 
@@ -122,57 +121,119 @@ class Trader:
             self.trades.append(trade)
             # print(trade.win, trade.entry_timestamp, trade.exit_timestamp)
 
-        wins = [trade.win for trade in self.trades if trade.win != False]
-        losses = [trade.win for trade in self.trades if trade.win == False]
+        # wins = [trade.win for trade in self.trades if trade.win != False]
+        # # losses = [trade.win for trade in self.trades if trade.win == False]
 
-        print(f'wins: {len(wins)}')
-        print(f'losses: {len(losses)}')
+        # print(f'wins: {len(wins)}')
+        # print(f'losses: {len(losses)}')
+
+        # pnl = 0
+        # pos_size = 20000
+        # fees = 0
+        # drawdown = 0
+        # pnl_rolling = []
+        # open_rolling = []
+
+        wins = 0
+        losses = 0
+        portfolio_size = 50000
+        fee_amount_per_side = 0.0004
+        first_price = None
+
+        total_profit = 0
+        total_loss = 0
 
         pnl = 0
-        pos_size = 2500
         fees = 0
-        drawdown = 0
-        pnl_rolling = []
-        open_rolling = []
 
-        for trade in self.trades[:-5]:
-            pct_change = (trade.exit_price -
-                          trade.entry_price) / trade.entry_price
+        pct_risk = 0.075
+        pnl_list = []
+        rolling_pnl_list = []
 
-            pnl += pos_size * pct_change
-            # fee is 0.04% per side
-            fee = 0.0008 * pos_size
+        buy_hold_pnl = 0
+        rolling_buy_hold_pnl_list = []
 
-            fees += fee
-            pnl -= fee
+        sl_pct_pnl_list = []
+        atr_pnl_list = []
 
-            if pnl < drawdown:
-                drawdown = pnl
+        for trade in self.trades:
+            if trade.exit_timestamp != None:
 
-            print(f'{pnl:.2f} {trade.entry_timestamp}')
-            pnl_rolling.append(pnl)
-            open_rolling.append(trade.entry_price)
+                if first_price == None:
+                    first_price = trade.entry_price
 
-        print()
-        print(f'fees: {fees:.2f}')
-        print(f'pnl: {pnl:.2f}')
-        print(f'pnl (fee adjusted): {pnl-fees:.2f}')
-        print('drawdown: ', drawdown)
+                buy_hold_pnl = ((trade.exit_price - first_price) /
+                                first_price) * portfolio_size
+                rolling_buy_hold_pnl_list.append(buy_hold_pnl)
 
-        # convert pnl_rolling to a pct based on the first val
-        # pnl_rolling = [((pnl - pnl_rolling[0]) / pnl_rolling[0]) * 100
-        #                for pnl in pnl_rolling]
+                dollar_change = trade.exit_price - trade.entry_price
+                pct_change = dollar_change / trade.entry_price
+
+                wins += 1 if trade.win else 0
+                losses += 1 if not trade.win else 0
+
+                stoploss_pct = (trade.sl_price -
+                                trade.entry_price) / trade.entry_price
+                takeprofit_pct = (trade.tp_price -
+                                  trade.entry_price) / trade.entry_price
+
+                pos_size = portfolio_size * pct_risk / stoploss_pct
+                profit = abs(pos_size * pct_change)
+                fee = abs(pos_size * (2 * fee_amount_per_side))
+
+                color_green = '\033[92m'
+                color_red = '\033[91m'
+                color_end = '\033[0m'
+
+                print(f'[{trade.entry_timestamp}]')
+                if trade.win:
+                    print(
+                        f'{color_green}win: ${profit:.2f}{color_end}, fee: ${fee:.2f}'
+                    )
+                    total_profit += profit
+
+                if not trade.win:
+                    profit = -profit
+                    print(
+                        f'{color_red}loss: ${profit:.2f}{color_end}, fee: ${fee:.2f}'
+                    )
+                    total_loss += profit
+
+                pnl += profit
+                pnl_list.append(pnl)
+                rolling_pnl_list.append(pnl)
+                fees += fee
+
+                sl_pct_pnl = [stoploss_pct, pnl]
+                sl_pct_pnl_list.append(sl_pct_pnl)
+                
+                atr_pnl = [trade.entry_atr, pnl]
+                atr_pnl_list.append(atr_pnl)
+
+                print(f'stoploss: %{stoploss_pct:.2f},' +
+                      f' ${trade.entry_price - trade.sl_price:.2f}')
+                print(f'takeprofit: %{takeprofit_pct:.2f},' +
+                      f' ${trade.tp_price - trade.entry_price:.2f}')
+
+                print(f'pos_size: ${abs(pos_size):.2f}\n')
+
+        summary_header_colour = color_green if pnl > 0 else color_red
+        print(f'{summary_header_colour}summary{color_end}')
+        print(f'  wins: {wins}')
+        print(f'  losses: {losses}')
+        print(f'  losses ($): ${total_loss:.2f}')
+        print(f'  profits ($): ${total_profit:.2f}')
+        print(f'  fees ($): ${fees:.2f}')
+        print(f'  net change: ${(total_profit+total_loss)-fees:.2f}')
+
+        # plot the rolling_pnl
+        plt.plot(rolling_pnl_list, label='algorithm')
+        plt.plot(rolling_buy_hold_pnl_list, label='buy and hold')
+        plt.legend()
+        plt.show()
         
-        # open_rolling = [((pnl - open_rolling[0]) / open_rolling[0]) * 100
-        #                   for pnl in open_rolling]
-
-        plt.plot(pnl_rolling)
-        plt.plot(open_rolling)
-        # print(open_rolling)
+        plt.scatter(*zip(*sl_pct_pnl_list))
+        plt.show()
         
-        
-
-        print('buy and gold gain: ',
-              (open_rolling[-1] - open_rolling[0]) / open_rolling[0] * 100)
-
+        plt.scatter(*zip(*atr_pnl_list))
         plt.show()

@@ -19,8 +19,9 @@ from algorithm.algorithm import AlgoEngine
 algo_engine = AlgoEngine()
 
 # unpickle the data
-df_spot = pd.read_pickle('data/okx/LTC-USDT_30m_01-01-2022_None.pkl')
-df_swap = pd.read_pickle('data/okx/LTC-USDT-SWAP_30m_01-01-2022_None')
+df_spot = pd.read_pickle('data/okx/BTC-USDT_1d_01-10-2019_None.pkl')
+df_swap = pd.read_pickle('data/okx/BTC-USDT_1d_01-10-2019_None.pkl')
+
 # convert the timestamp to datetime
 df_spot.timestamp = pd.to_datetime(df_spot.timestamp, unit='ms')
 df_swap.timestamp = pd.to_datetime(df_swap.timestamp, unit='ms')
