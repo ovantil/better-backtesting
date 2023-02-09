@@ -109,5 +109,5 @@ class OkxDataFetch:
 
 if __name__ == '__main__':
     okx = OkxDataFetch()
-    df_swap = okx.get_ohlcv('BTC', '4h', 'spot', '01-01-2021', cache=True)
+    df_swap = okx.get_ohlcv('ETH', '4h', 'spot', '01-01-2022', cache=True)
     # df_spot = okx.get_ohlcv('BTC', '1d', 'spot', '01-01-2020', cache=True)

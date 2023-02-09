@@ -4,3 +4,4 @@ ccxt
 mplfinance
 matplotlib
 TA-Lib
+polygon-api-client

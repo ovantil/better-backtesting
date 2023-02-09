@@ -18,15 +18,23 @@ from algorithm.algorithm import AlgoEngine
 
 algo_engine = AlgoEngine()
 
-test_data = 'BTC-USDT_4h_01-01-2021_None.pkl'
+test_data = 'ETH-USDT_4h_01-01-2022_None.pkl'
+csv_data = 'CXAUGBP_4_hour_20210901_20231002.csv'
+csv = True
 
-# unpickle the data
-df_spot = pd.read_pickle(f'data/okx/{test_data}')
-df_swap = pd.read_pickle(f'data/okx/{test_data}')
+if not csv:
+    # unpickle the data
+    df_spot = pd.read_pickle(f'data/okx/{test_data}')
+    df_swap = pd.read_pickle(f'data/okx/{test_data}')
+
+else:
+    # read the csv data
+    df_spot = pd.read_csv(f'data/polygon/{csv_data}')
+    df_swap = pd.read_csv(f'data/polygon/{csv_data}')
 
 # convert the timestamp to datetime
-df_spot.timestamp = pd.to_datetime(df_spot.timestamp, unit='ms')
-df_swap.timestamp = pd.to_datetime(df_swap.timestamp, unit='ms')
+# df_spot.timestamp = pd.to_datetime(df_spot.timestamp, unit='ms')
+# df_swap.timestamp = pd.to_datetime(df_swap.timestamp, unit='ms')
 
 print(df_spot)
 
