@@ -152,7 +152,7 @@ class Trader:
         pnl = 0
         fees = 0
 
-        pct_risk = 0.025
+        pct_risk = 0.08
         pnl_list = []
         rolling_pnl_list = []
 
@@ -182,6 +182,8 @@ class Trader:
 
                 atr_based_pos_multiplier = (trade.entry_atr /
                                             trade.entry_price) * 100
+                
+                # atr_based_pos_multiplier = 1
 
                 pos_size = (portfolio_size * pct_risk /
                             stoploss_pct) * atr_based_pos_multiplier
@@ -236,8 +238,15 @@ class Trader:
         print(f'  max drawdown: ${drawdown:.2f}')
         # plot the rolling_pnl
         
-        plt.style.use('bmh')
+        # plt.style.use('bmh')
         plt.plot(rolling_pnl_list, label='algorithm')
         plt.plot(rolling_buy_hold_pnl_list, label='buy and hold')
+        
+        # set the title
+        plt.title('XAU/GBP, 0.05 RPT, CR=False, ATR-PS=False')
+        
         plt.legend()
-        plt.show()
+        # plt.show()
+        
+        # save it to a file
+        plt.savefig('xau_gbp_0.05_rpt_cr_atr.png')

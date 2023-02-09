@@ -20,7 +20,7 @@ algo_engine = AlgoEngine()
 
 test_data = 'ETH-USDT_4h_01-01-2022_None.pkl'
 csv_data = 'CXAUGBP_4_hour_20210901_20231002.csv'
-csv = True
+csv = False
 
 if not csv:
     # unpickle the data

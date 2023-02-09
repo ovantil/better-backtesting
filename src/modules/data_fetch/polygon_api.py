@@ -178,6 +178,6 @@ if __name__ == '__main__':
     data = market_data.get_ohlcv_dataframe('C:XAUGBP',
                                            4,
                                            'hour',
-                                           '2021-09-01',
+                                           '2018-09-01',
                                            '2023-10-02',
                                            save=True)
